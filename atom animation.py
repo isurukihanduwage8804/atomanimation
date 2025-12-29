@@ -1,70 +1,78 @@
 import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
+import requests
 
-st.set_page_config(page_title="අතථ්‍ය රසායනාගාරය", layout="wide")
+st.set_page_config(page_title="118 Elements Lab", layout="wide")
 
-st.title("⚛️ පරමාණුක ව්‍යුහය සහ ඉලෙක්ට්‍රෝන චලනය")
-st.write("මුලද්‍රව්‍යයක් තෝරා එහි ඉලෙක්ට්‍රෝන කක්ෂගත වන අයුරු නිරීක්ෂණය කරන්න.")
+# මුලද්‍රව්‍ය 118 ම අඩංගු දත්ත ලබාගැනීම
+@st.cache_data
+def load_element_data():
+    url = "https://raw.githubusercontent.com/Bowserinator/Periodic-Table-JSON/master/PeriodicTableJSON.json"
+    response = requests.get(url)
+    return response.json()['elements']
 
-# මුලද්‍රව්‍ය දත්ත (ප්‍රධාන කිහිපයක් මෙහි ඇත, ඔබට අවශ්‍ය නම් තවත් එක් කළ හැක)
-elements = {
-    "Hydrogen": {"Z": 1, "config": [1]},
-    "Helium": {"Z": 2, "config": [2]},
-    "Lithium": {"Z": 3, "config": [2, 1]},
-    "Beryllium": {"Z": 4, "config": [2, 2]},
-    "Boron": {"Z": 5, "config": [2, 3]},
-    "Carbon": {"Z": 6, "config": [2, 4]},
-    "Nitrogen": {"Z": 7, "config": [2, 5]},
-    "Oxygen": {"Z": 8, "config": [2, 6]},
-    "Neon": {"Z": 10, "config": [2, 8]},
-    "Sodium": {"Z": 11, "config": [2, 8, 1]},
-    "Magnesium": {"Z": 12, "config": [2, 8, 2]},
-    "Aluminum": {"Z": 13, "config": [2, 8, 3]},
-}
+try:
+    elements_data = load_element_data()
+    
+    st.title("⚛️ පරමාණුක ව්‍යුහය: මුලද්‍රව්‍ය 118 ම මෙතැනින්")
+    
+    # මුලද්‍රව්‍ය තේරීමේ ලැයිස්තුව
+    el_names = [el['name'] for el in elements_data]
+    selected_name = st.selectbox("මුලද්‍රව්‍යයක් තෝරන්න (Select an Element):", el_names)
+    
+    # තෝරාගත් මුලද්‍රව්‍යයේ දත්ත වෙන් කරගැනීම
+    el_info = next(el for el in elements_data if el['name'] == selected_name)
+    shells = el_info['shells'] # ඉලෙක්ට්‍රෝන වින්යාසය (උදා: [2, 8, 1])
 
-selected_el = st.selectbox("මුලද්‍රව්‍යය තෝරන්න:", list(elements.keys()))
-data = elements[selected_el]
+    col1, col2 = st.columns([2, 1])
 
-st.subheader(f"{selected_el} පරමාණුවේ ආකෘතිය (Atomic Number: {data['Z']})")
-
-def create_atom_plot(config):
-    fig = go.Figure()
-
-    # න්‍යෂ්ටිය (Nucleus)
-    fig.add_trace(go.Scatter(x=[0], y=[0], mode='markers',
-                             marker=dict(size=20, color='red'), name='Nucleus'))
-
-    # කක්ෂ සහ ඉලෙක්ට්‍රෝන ඇඳීම
-    for i, e_count in enumerate(config):
-        radius = (i + 1) * 2  # කක්ෂයේ අරය
+    with col1:
+        st.subheader(f"{selected_name} ({el_info['symbol']}) - පරමාණුක ආකෘතිය")
         
-        # කක්ෂය (Orbit line)
-        theta = np.linspace(0, 2*np.pi, 100)
-        fig.add_trace(go.Scatter(x=radius*np.cos(theta), y=radius*np.sin(theta),
-                                 mode='lines', line=dict(color='gray', dash='dash'), 
-                                 showlegend=False))
+        fig = go.Figure()
+        # න්‍යෂ්ටිය
+        fig.add_trace(go.Scatter(x=[0], y=[0], mode='markers', 
+                                 marker=dict(size=25, color='red'), name='Nucleus'))
 
-        # ඉලෙක්ට්‍රෝන (Electrons)
-        e_angles = np.linspace(0, 2*np.pi, e_count, endpoint=False)
-        fig.add_trace(go.Scatter(
-            x=radius*np.cos(e_angles),
-            y=radius*np.sin(e_angles),
-            mode='markers',
-            marker=dict(size=10, color='blue'),
-            name=f"Shell {i+1} ({e_count}e)"
-        ))
+        # සෑම කක්ෂයක් සඳහාම ඉලෙක්ට්‍රෝන ඇඳීම
+        for i, e_count in enumerate(shells):
+            radius = (i + 1) * 2
+            # කක්ෂයේ රේඛාව
+            theta = np.linspace(0, 2*np.pi, 100)
+            fig.add_trace(go.Scatter(x=radius*np.cos(theta), y=radius*np.sin(theta),
+                                     mode='lines', line=dict(color='lightgray', width=1), 
+                                     showlegend=False))
 
-    fig.update_layout(
-        xaxis=dict(range=[-10, 10], showgrid=False, zeroline=False, visible=False),
-        yaxis=dict(range=[-10, 10], showgrid=False, zeroline=False, visible=False),
-        width=600, height=600,
-        showlegend=True,
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-    return fig
+            # ඉලෙක්ට්‍රෝන පිහිටීම (Animation එකක් වගේ පෙනීමට කෝණය මාරු කළ හැක)
+            e_angles = np.linspace(0, 2*np.pi, e_count, endpoint=False)
+            fig.add_trace(go.Scatter(
+                x=radius*np.cos(e_angles),
+                y=radius*np.sin(e_angles),
+                mode='markers',
+                marker=dict(size=10, color='blue', line=dict(width=1, color='white')),
+                name=f"Shell {i+1}: {e_count}e"
+            ))
 
-st.plotly_chart(create_atom_plot(data['config']))
+        fig.update_layout(
+            width=700, height=700,
+            xaxis=dict(visible=False), yaxis=dict(visible=False),
+            plot_bgcolor='white',
+            showlegend=True
+        )
+        st.plotly_chart(fig)
 
-# ඉලෙක්ට්‍රෝනික වින්‍යාසය පෙන්වීම
-st.info(f"ඉලෙක්ට්‍රෝනික වින්‍යාසය: {', '.join(map(str, data['config']))}")
+    with col2:
+        st.write("### විස්තර තොරතුරු")
+        st.write(f"**පරමාණුක ක්‍රමාංකය:** {el_info['number']}")
+        st.write(f"**සංකේතය:** {el_info['symbol']}")
+        st.write(f"**පරමාණුක ස්කන්ධය:** {el_info['atomic_mass']}")
+        st.write(f"**ප්‍රවර්ගය:** {el_info['category']}")
+        st.info(f"**ඉලෙක්ට්‍රෝන වින්‍යාසය:** {shells}")
+        st.write(f"**සාරාංශය:** {el_info['summary'][:200]}...")
+
+except Exception as e:
+    st.error(f"දත්ත ලබාගැනීමේදී දෝෂයක් සිදු විය: {e}")
+
+st.divider()
+st.caption("දත්ත සැපයීම: Periodic Table JSON Data")
